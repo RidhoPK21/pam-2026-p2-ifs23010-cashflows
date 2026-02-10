@@ -9,8 +9,8 @@ class CashFlowService(private val repository: CashFlowRepository) {
     private val dateFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy")
 
     /**
-     * Mengambil daftar catatan keuangan dengan menerapkan filter yang sangat ketat.
-     * Logika ini memastikan jumlah data pas dengan ekspektasi filter.test.js.
+     * Mengambil daftar catatan keuangan dengan filter.
+     * Logika label diperbaiki menjadi OR (any) agar sesuai dengan test case.
      */
     fun getAllCashFlows(query: CashFlowQuery): List<CashFlow> {
         return repository.getAll().filter { cf ->
@@ -20,9 +20,21 @@ class CashFlowService(private val repository: CashFlowRepository) {
             // Filter Sumber
             val matchSource = query.source?.let { cf.source.equals(it, true) } ?: true
 
-            // Filter Label - Harus mengandung SEMUA label yang diminta di query
-            val matchLabels = query.labels?.split(",")?.filter { it.isNotBlank() }?.all { searchLabel ->
-                cf.label.split(",").map { it.trim() }.contains(searchLabel.trim())
+            // Filter Label - PERBAIKAN: Menggunakan Logika OR (.any)
+            // Tes mengharapkan jika dicari "A,B", maka tampilkan data yang punya label A ATAU B.
+            val matchLabels = query.labels?.let { param ->
+                val searchTags = param.split(",").filter { it.isNotBlank() }.map { it.trim() }
+
+                if (searchTags.isEmpty()) true
+                else {
+                    // Ambil list label dari data saat ini
+                    val itemLabels = cf.label.split(",").map { it.trim() }
+
+                    // Cek apakah ADA salah satu tag pencarian di dalam label item
+                    searchTags.any { tag ->
+                        itemLabels.any { it.equals(tag, ignoreCase = true) }
+                    }
+                }
             } ?: true
 
             // Filter nominal uang
@@ -32,7 +44,7 @@ class CashFlowService(private val repository: CashFlowRepository) {
             // Filter pencarian deskripsi
             val matchSearch = query.search?.let { cf.description.contains(it, true) } ?: true
 
-            // Filter Tanggal (Penting: dd-MM-yyyy vs ISO format)
+            // Filter Tanggal
             val cfDate = try {
                 LocalDate.parse(cf.createdAt.substring(0, 10))
             } catch (e: Exception) {
@@ -64,15 +76,11 @@ class CashFlowService(private val repository: CashFlowRepository) {
             .distinct()
     }
 
-    // Fungsi CRUD dasar yang dipanggil oleh Controller
+    // Fungsi CRUD dasar
     fun findById(id: String) = repository.findById(id)
     fun create(cf: CashFlow) = repository.add(cf)
     fun update(id: String, cf: CashFlow) = repository.update(id, cf)
-
-    // Pastikan nama fungsi ini 'remove' agar match dengan Controller Sasya
     fun remove(id: String): Boolean = repository.removeById(id)
-
-    // Alias untuk setupData
     fun removeCashFlow(id: String) { repository.removeById(id) }
 
     fun createRawCashFlow(

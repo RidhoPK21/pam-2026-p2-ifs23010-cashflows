@@ -10,20 +10,20 @@ import org.koin.ktor.plugin.Koin
 import org.koin.logger.slf4jLogger
 
 fun main(args: Array<String>) {
-    // Muat variabel environment dari file .env agar variabel ${APP_PORT} di application.yaml terbaca
+    // Muat variabel environment
     try {
         val dotenv = dotenv()
         dotenv.entries().forEach { entry ->
             System.setProperty(entry.key, entry.value)
         }
     } catch (e: Exception) {
-        // Tetap lanjutkan jika .env tidak ada (mungkin menggunakan environment system langsung)
+        // Lanjut jika .env tidak ditemukan
     }
 
     io.ktor.server.netty.EngineMain.main(args)
 }
 
-// 1. Definisikan modul Koin untuk Dependency Injection
+// 1. Definisikan modul Koin
 val appModule = module {
     single { CashFlowRepository() }
     single { CashFlowService(get()) }
@@ -31,18 +31,18 @@ val appModule = module {
 }
 
 fun Application.module() {
-    // 2. Install Plugin Koin agar Service dan Controller bisa di-inject
+    // 2. Install Plugin Koin
     install(Koin) {
         slf4jLogger()
         modules(appModule)
     }
 
-    // 3. Panggil konfigurasi standar
-    configureSerialization() // Untuk memproses JSON (Content Negotiation)
-    configureHTTP()          // Untuk pengaturan CORS dan Header
+    // 3. Konfigurasi Aplikasi
+    configureSerialization()
+    configureHTTP()
 
-    // Tambahkan StatusPages jika Anda ingin menangani error global (Opsional)
-    // configureStatusPages()
+    // PENTING: Aktifkan StatusPages agar error 500 merespon dengan JSON
+    configureStatusPages()
 
-    configureRouting()       // Menghubungkan endpoint ke Controller
+    configureRouting()
 }
